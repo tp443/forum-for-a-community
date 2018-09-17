@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: js/dao.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: js/dao.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * This is our Data Access Object. It defines functionality for storing information
+ * about Forum Posts and the Users who have signed up; they are stored in 2 seperate databases.
+ * The rest of our applications only needs to ask the DAO to store
+ * something in either of these databases.
+ *
+ * This file just conatines code regarding the two databses inplementation,
+ *
+ * The Week 9 complete app example by Dr Kasim Terzic proved a great base, and some of his code was paraphrased and implemented
+ *
+ * @author tmep,nn27,ty35,dtb3,mb372
+ * @date Apr 2018
+ * @module js/dao
+ */
+
+(function() { // wrap into a function to scope content
+
+  let fs = require('fs');
+  let model = require('./model.js');
+  let cradle = require('cradle');
+
+  // Load the 2 DB configurations from the db.json file
+  let dbinfo = JSON.parse(fs.readFileSync('db.json', 'utf8'));
+
+  //db refering to userPosts
+  let db = new(cradle.Connection)(dbinfo.url, {
+    auth: dbinfo.auth
+  }).database(dbinfo.dbname);
+
+  //db refering to the users themselves
+  let db2 = new(cradle.Connection)(dbinfo.url, {
+    auth: dbinfo.auth
+  }).database(dbinfo.dbname2);
+
+
+  function init(callback) {
+    db.exists(function(err, exists) {
+      if (err) {
+        console.log('error', err);
+      } else if (exists) {
+        console.log('Forum Database found!');
+        db.view('allforumposts/max', function(err, doc) {
+          //Returns the maximium number of posts made.
+          callback(doc[0].value);
+        });
+      } else {
+        console.log('Forum Database not found - so will create one');
+        db.create();
+
+
+        // These are the views created for this DB. These are crucial in being able to
+        // access the posts relevant to each town.
+        //
+        // The count view returns the highest User Id currently in the database. This is crucial if
+        // we restart our server, it should not start counting IDs from zero, but start
+        // with the largest ID in the database. This is returned in the callback when the app is initialised
+        db.save('_design/allforumposts', {
+          all: {
+            map: function(doc) {
+              if (doc.id) emit(doc.id, doc);
+            }
+          },
+          max: {
+            map: function(doc) {
+              if (doc.id) emit(1, doc.id);
+            },
+            reduce: function(key, values, rereduce) {
+              return Math.max.apply(Math, values);
+            }
+          },
+          StAndrews: {
+            map: function(doc) {
+              if (doc.message &amp;&amp; doc.place == 'St-Andrews')
+                emit(doc._id, doc)
+            }
+          },
+          Cupar: {
+            map: function(doc) {
+              if (doc.message &amp;&amp; doc.place == 'Cupar')
+                emit(doc._id, doc)
+            }
+          },
+          Dundee: {
+            map: function(doc) {
+              if (doc.message &amp;&amp; doc.place == 'Dundee')
+                emit(doc._id, doc)
+            }
+          },
+          Newport: {
+            map: function(doc) {
+              if (doc.message &amp;&amp; doc.place == 'Newport')
+                emit(doc._id, doc)
+            }
+          },
+          Glenrothes: {
+            map: function(doc) {
+              if (doc.message &amp;&amp; doc.place == 'Glenrothes')
+                emit(doc._id, doc)
+            }
+          },
+          count: {
+            map: function(doc) {
+              if (doc.id) emit(doc.type, 1)
+            },
+            reduce: function(key, values, rereduce) {
+              return sum(values);
+            }
+          }
+        });
+
+        // Some Posts to see the app works
+        let post1 = new model.ForumPost(1, "TomJones", 'St-Andrews', 'Work on practical!', 'Thu, 2 Apr 2017 08:49:57 GMT');
+        let post2 = new model.ForumPost(2, "DavidCam", 'Cupar', 'More work on practical!', 'Wed, 2 Jun 2017 08:50:57 GMT');
+        let post3 = new model.ForumPost(3, "RyanMorgan", 'Dundee', 'Think about practical!', 'Mon, 3 Aug 2017 08:49:57 GMT');
+        let post4 = new model.ForumPost(4, "BBCSport", 'St-Andrews', 'Match cancelled!', 'Thu, 26 Dec 2017 08:49:57 GMT');
+        let post5 = new model.ForumPost(5, "BBCNews", 'Glenrothes', 'Weather Warnings!', 'Thu, 19 Apr 2018 08:49:57 GMT');
+        let post6 = new model.ForumPost(6, "RyanMorgan", 'Newport', 'So cold!', 'Thu, 26 Apr 2018 08:49:57 GMT');
+
+        // Some Posts to see the app works
+        addPost(post1, function(it) {
+          addPost(post2, function(it) {
+            addPost(post3, function(it) {
+              addPost(post4, function(it) {
+                addPost(post5, function(it) {
+                  addPost(post6, function(it) {
+                    callback(7);
+                  });
+                });
+              });
+            });
+          });
+        });
+      }
+    });
+  };
+
+  // Initialise the users database
+  function init2(callback) {
+    db2.exists(function(err, exists) {
+      if (err) {
+        console.log('error', err);
+      } else if (exists) {
+        console.log('User Database found.');
+        db2.view('allusers/max', function(err, doc) {
+          callback(doc[0].value);
+        });
+      } else {
+        console.log('Forum Database not found - so will create one');
+        db2.create();
+
+        // These are the views created for this DB. These are crucial in being able to
+        // access the posts relevant to each town.
+        //
+        // The count view returns the highest User Id currently in the database. This is crucial if
+        // we restart our server, it should not start counting IDs from zero, but start
+        // with the largest user ID in the database. This is returned in the callback when the app is initialised
+
+        db2.save('_design/allusers', {
+          all: {
+            map: function(doc) {
+              if (doc.id) emit(doc.id, doc);
+            }
+          },
+          max: {
+            map: function(doc) {
+              if (doc.id) emit(1, doc.id);
+            },
+
+            reduce: function(key, values, rereduce) {
+              return Math.max.apply(Math, values);
+            }
+          },
+          count: {
+            map: function(doc) {
+              if (doc.id) emit(doc.type, 1)
+            },
+            reduce: function(key, values, rereduce) {
+              return sum(values);
+            }
+          }
+        });
+
+        // Some Users to see the app works
+        let user1 = new model.UserInfo(1, "Tom", 'abcde');
+        let user2 = new model.UserInfo(2, "Wayne", 'zxy');
+        let user3 = new model.UserInfo(3, "David", 'football');
+
+        // addUser function is called sequentially, so each
+        // one is called from the previous callback.
+        addUser(user1, function(it) {
+          addUser(user2, function(it) {
+            addUser(user3, function(it) {
+              callback(4);
+            });
+          });
+        });
+      };
+    });
+  }
+
+
+
+  function getPosts(location, callback) {
+    // "all" view  gets all elements from the database.
+    db.view("allforumposts/" + location, function(err, doc) {
+      let posts = [];
+      if (err) console.log('Error getting all Posts');
+      else if (doc) {
+        for (d of doc) {
+          post = new model.ForumPost();
+          post.fromJSON(d.value);
+          posts.push(post);
+        }
+      }
+      callback(posts);
+    });
+  }
+
+
+  function getUsers(callback) {
+    db2.view("allusers/all", function(err, doc) {
+      let users = [];
+      if (err) console.log('Error getting all User');
+      else if (doc) {
+        for (d of doc) {
+          user = new model.UserInfo();
+          user.fromJSON(d.value);
+          users.push(user);
+        }
+      }
+      callback(users);
+    });
+  }
+
+  function addPost(post, callback) {
+    db.save(post.id + "", JSON.parse(post.toJSON()), function(err, res) {
+      callback(post.toJSON(), res);
+    });
+  }
+
+
+
+  function addPostAttachment(idAndRes, name, contentType, data, callback) {
+    var attachmentData = {
+      name: name,
+      'Content-Type': contentType,
+      body: data
+    }
+
+
+
+    db.saveAttachment(idAndRes, attachmentData, function(err, res) {
+      callback();
+    });
+  }
+
+  function getPostAttachment(id, name, callback) {
+    db.getAttachment(id, name, function(err, res) {
+      callback(res)
+    });
+  }
+
+  function addUser(user, callback) {
+    db2.save(user.id + "", JSON.parse(user.toJSON()), function(err, res) {
+      callback(user.toJSON());
+    });
+  }
+
+
+  function removePost(id, callback) {
+    db.remove(id + "", function(err, res) {
+      callback();
+    });
+  }
+
+
+
+  function removePostAttachment(id, name, callback) {
+    db.removeAttachment(id, name, function(err, res) {
+      callback();
+    });
+  }
+
+
+
+
+  function getView(location, callback) {
+    db.view(view, function(err, doc) {
+      if (err) reject('Error getting the view ' + view);
+      else if (doc) fulfill(doc);
+    });
+  }
+
+
+
+
+  // Some of our handlers accept callbacks. It might be a good idea to document those as well
+  // by telling JSDoc what they expect
+
+  /**
+   * @callback returnMaxID
+   * @param {Number} MaxID - largest ID in the database
+   */
+
+  /**
+   * @callback returnAllItems
+   * @param {Object} items - an object containing an array with all items
+   */
+
+  /**
+   * @callback returnSingleItem
+   * @param {Object} item - the object that was created or deleted
+   */
+
+
+
+  let exports = {
+    /**
+     * Initialise the DAO. This will check if the the database exists already and open it.
+     * If the database does not exist, it will create it and fill it with some initial data.
+     *
+     * @function
+     * @param {returnMaxID} callback - The function to be called when the DB fetch is finished
+     */
+    init: init,
+    init2: init2,
+    /**
+     * Returns all items from the database.
+     *
+     * @function
+     * @param {returnAllPosts} callback - The function to be called when the DB fetch is finished
+     */
+    getPosts,
+    /**
+     * Adds an item to the database.
+     *
+     * @function
+     * @param {ForumPost} post - The item to be stored
+     * @param {returnSinglePost} callback - The function to be called when the DB fetch is finished
+     */
+    addPost,
+    /**
+     * Deletes an item from the database.
+     *
+     * @function
+     * @param {ForumPost} post - The item to be stored
+     * @param {returnSinglePost} callback - The function to be called when the delete is finished
+     */
+    removePost,
+    /**
+     * Returns all items from the database.
+     *
+     * @function
+     * @param {returnAllPosts} callback - The function to be called when the DB fetch is finished
+     */
+    getPostAttachment,
+    /**
+     * Adds an item to the database.
+     *
+     * @function
+     * @param {ForumPost} post - The item to be stored
+     * @param {returnSinglePost} callback - The function to be called when the DB fetch is finished
+     */
+    addPostAttachment,
+    /**
+     * Deletes an item from the database.
+     *
+     * @function
+     * @param {ForumPost} post - The item to be stored
+     * @param {returnSinglePost} callback - The function to be called when the delete is finished
+     */
+    removePostAttachment,
+    /**
+     * Returns all users from the database.
+     *
+     * @function
+     * @param {returnAllUsers} callback - The function to be called when the DB fetch is finished
+     */
+    getUsers,
+    /**
+     * Add a user to the databse
+     *
+     * @function
+     * @param {UserPost} post - The item to be stored
+     * @param {returnSinglePost} callback - The function to be called when the DB fetch is finished
+     */
+    addUser,
+  }
+
+  if (typeof __dirname == 'undefined') {
+    window.exports = exports;
+  } else {
+    module.exports = exports;
+  }
+
+})();
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-js_api.html">js/api</a></li><li><a href="module-js_client.html">js/client</a></li><li><a href="module-js_dao.html">js/dao</a></li><li><a href="module-js_model.html">js/model</a></li><li><a href="module-js_news.html">js/news</a></li><li><a href="module-js_weather.html">js/weather</a></li></ul><h3>Classes</h3><ul><li><a href="module-js_model-ForumPost.html">ForumPost</a></li><li><a href="module-js_model-UserInfo.html">UserInfo</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Fri Apr 27 2018 09:44:01 GMT+0100 (BST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

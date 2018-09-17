@@ -1,0 +1,321 @@
+/**
+ * This is our document for the fundtionalities of the weather .
+ * It enables our webpage to retrieve real-time data for specific towns
+ * in the area of Five generated from several API's.
+ *
+ * @author dtb3,mb372
+ * @date Mar 2018
+ * @module js/weather
+ */
+
+
+var temp;
+var loc;
+var icon;
+var humidity;
+var wind;
+var direction;
+var weather;
+var place;
+//for GMaps
+var clicked = false;
+var zoomLevel;
+var timer;
+var arrTempDate = [];
+
+//----------------------------------------------------------------------------------------
+//WEATHER//-------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
+var api = 'http://api.openweathermap.org/data/2.5/weather?q=';
+var apiForecast = 'http://api.openweathermap.org/data/2.5/forecast?q=';
+var countrycode = ",GB";
+var apK = '&APPID=9719336bda278c78015507002409980f';
+var units = '&units=metric';
+
+//----------------------------------------------------------------------------------------
+
+/**
+*
+* @function locate - Takes in user's choice of location and feeds it to relevant content functions
+* @param {string} place - user's choice of location
+*/
+function locate(place) {
+
+  // console.log("going into locate, clicked = " + clicked);
+  clicked = true;
+
+  //for home page, clear elements except forum and maps - for all else, fill everything
+  if (place == "Home") {
+    initMap(place);
+    $("#cityinfo").empty();
+    $("#mainmessage").empty();
+    $("#descript").empty();
+    $("#tempmin").empty();
+    $("#temperature").empty();
+    $("#tempmax").empty();
+    $("#wind").empty();
+    $("#humidity").empty();
+    $("#chart").empty();
+
+    refreshList("all");
+    $('#linechart').hide();
+    $('#weather_API').hide();
+  } else if (place != "Home"){
+    $('#linechart').show();
+    $('#weather_API').show();
+    place = place;
+    console.log(place);
+    weatherAsk(place);
+    forecastAsk(place);
+
+    initMap(place);
+
+    refreshList(place);
+  }
+  sortNews(place);
+}
+//----------------------------------------------------------------------------------------
+
+/**
+* @function weatherAsk -  Takes in user's choice of location and turns it into URL to make request to Openweather API for current weather
+* @param {string} place - user's choice of location
+*/
+function weatherAsk(place) {
+  if (place == "Saint Andrews"){
+    place = "St Andrews";
+  }
+  else {
+    place = place;
+  }
+  var url = api + place + apK + units;
+  console.log("URL=" + url)
+  fetch(url)
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      gotData(data);
+
+    })
+}
+
+//----------------------------------------------------------------------------------------
+/**
+* gotData function:
+* Takes in Openweather API for relevant location and pushes into displayInfo function
+* @param {Object} data - open weather API response object
+*/
+function gotData(data) {
+  weather = data;
+  displayInfo(weather)
+}
+//----------------------------------------------------------------------------------------
+
+/**
+* displayInfo function:
+* Takes in Openweather API for relevant location and pushes into display widget function
+* @param {Object} weather - open weather API response object (renamed)
+*/
+function displayInfo(weather) {
+  var city = weather.name;
+  var mainmessage = weather.weather[0].main;
+  var descript = weather.weather[0].description;
+  var temp_min = weather.main.temp_min;
+  var temp = weather.main.temp;
+  var temp_max = weather.main.temp_max;
+  var wind = weather.wind.speed;
+  var humidity = weather.main.humidity;
+
+
+  $('#cityinfo').html("<strong>" + city + "</strong>"+"<div id='mainmessage'><strong>"+ mainmessage + "</strong></div>")
+  $('#temperature').html("<strong>" + temp + "℃" + "</strong>")
+  $('#wind').html("<img src='windspeed.png' id='imageWeather'>"+ wind + "kph")
+  $('#tempmin').html("Min temperature: " + temp_min + "℃")
+  $('#tempmax').html("Max temperature: " + temp_max + "℃")
+  $('#humidity').html("Humidity: " + humidity +"%")
+
+}
+
+//----------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
+/**
+* weatherAsk function:
+* Takes in user's choice of location and makes request to Openweather API for forecast
+* Pushes this response into gotForecast function for display as graph
+* @param {string} place - user's choice of location
+*/
+function forecastAsk(place) {
+  var url2 = apiForecast + place + countrycode + apK + units;
+  fetch(url2)
+    .then(function(response) {
+      console.log(response);
+      return response.json();
+    })
+    .then(function(data) {
+      gotforecast(data);
+
+    })
+}
+//----------------------------------------------------------------------------------------
+/**
+* gotForecast function:
+* Takes in Openweather API for relevant location and pushes into displayForecast function
+* @param {Object} data - open weather API response object
+*/
+function gotforecast(data) {
+  forecast = data;
+  displayForecast(forecast)
+}
+//----------------------------------------------------------------------------------------
+
+/**
+* displayForecast function:
+* Displays temperatures for next 5 days in c3 line chart
+* c3 code based on official C3 library site instructions:  "Getting Started" (http://c3js.org/gettingstarted.html) and Timeseries Chart pages (http://c3js.org/samples/timeseries.html)
+* @param {Object} weather - open weather API response object (renamed)
+*/
+function displayForecast(weather) {
+  //get 5 temperatures one day apart from the current time
+  var tempArray = ['Temperature'];
+  var dateArray = ['x'];
+  var j = 0;
+
+  //format data
+  for (var i = 0; i < 5; i++) {
+
+    //put data into arrays
+    var newTemp = weather.list[j].main.temp;
+    tempArray.push(newTemp);
+
+    var newDate = weather.list[j].dt_txt;
+    month = newDate.substring(5, 7);
+    day = newDate.substring(8, 10);
+    year = newDate.substring(0, 4);
+    newDate = day + "/" + month + "/" + year;
+    dateArray.push(newDate);
+    //only take in data from entries a day apart (each entry is 3 hours apart, so 8x3 = 24)
+    j += 8;
+  }
+
+  //c3 code based on official C3 library site instructions:  "Getting Started" (http://c3js.org/gettingstarted.html) and Timeseries Chart pages (http://c3js.org/samples/timeseries.html)
+  var chart = c3.generate({
+    bindto: "#chart",
+    point: {
+      r:10
+    },
+    padding: {
+      right: 35
+    },
+    data: {
+      x: 'x',
+      xFormat: '%d/%m/%Y',
+      columns: [
+        tempArray,
+        dateArray
+      ],
+      type: 'spline'
+    },
+    axis: {
+      x: {
+        type: 'timeseries',
+        tick: {
+          format: '%d/%m/%Y'
+        }
+      }
+    }
+
+  });
+}
+
+
+
+//   MAP CODE  ---------------------------------------------------------------------------
+/**
+* initMap function:
+* Displays relevant town data in Google map viewer with traffic information overlay
+* Map display function initially based on static map display tutorial at https://www.w3schools.com/graphics/google_maps_intro.asp
+* and official Google documentation for traffic overlay at https://developers.google.com/maps/documentation/javascript/examples/layer-traffic
+* @param {string} place - open weather API response object (renamed)
+*/
+function initMap(place) {
+  stopClock();
+  //define properties for map - start broadly on fife, then go specific
+  initialPlace = "fife"
+
+  //deal with location bug
+  if (place == "Saint Andrews") {
+    place = "St Andrews";
+  }
+  else if (place == "Newport") {
+    place = "Newport-on-tay";
+  }
+  else if (place == "Home") {
+    place = "fife";
+  }
+  else {
+    place = place;
+  }
+
+  if (clicked == false) {
+    place = initialPlace;
+    zoomLevel = 9;
+  }
+  else if ((clicked == true) && (place != "fife")) {
+    place = place;
+    zoomLevel = 15;
+  }
+  else if ((clicked == true) && (place == "fife")){
+    place = place;
+    zoomLevel = 9;
+  }
+
+  var latitude;
+  var longitude;
+
+  //get current location coordinates from Google Geocoder
+  requestURL = "https://maps.googleapis.com/maps/api/geocode/json?address=" + place + "&key=AIzaSyCR_i8VzXdxosl2rTCz8S2gfuXxK7lcn00"
+  fetch(requestURL)
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      latitude = data.results[0].geometry.location.lat;
+      longitude = data.results[0].geometry.location.lng;
+
+      //define properties of map
+      var mapProperties = {
+        center: new google.maps.LatLng(latitude, longitude),
+        zoom: zoomLevel,
+      };
+      var map = new google.maps.Map(document.getElementById("googleMap"), mapProperties);
+
+      //snippet from Google maps API documentation: https://developers.google.com/maps/documentation/javascript/examples/layer-traffic
+      var trafficLayer = new google.maps.TrafficLayer();
+      trafficLayer.setMap(map);
+      refreshMap(place);
+    })
+}
+/**
+* refreshMap function:
+* Recalls map viewer at 3 minute interval using setTimeout
+* @param {string} place - user's chosen location
+*/
+function refreshMap (place) {
+  place = place;
+  console.log("at refreshMap, clicked = " + clicked);
+  console.log("at refreshMap, place = " + place);
+    timer = setTimeout(function() {
+    initMap(place);
+  }, 180000);
+};
+
+/**
+* stopClock function:
+* Cancels last running refreshMap timer upon new click (prevents overlapping timers causing multiple map refreshes)
+* @param {string} place - user's chosen location
+*/
+function stopClock() {
+  clearTimeout(timer);
+}
+
+//----------------------------------------------------------------------------------------

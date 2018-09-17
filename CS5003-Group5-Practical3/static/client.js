@@ -1,0 +1,383 @@
+/**
+ * Clinet-side Javascript file. It loads the page and any user interaction is
+ *send through to the server
+ *
+ * @author tmep,nn27,ty35,dtb3,mb372
+ * @date Apr 2018
+ * @module js/client
+ */
+
+//Global variable - Orginally see all posts
+var subPage = "all"
+var loggedInStaus = "off";
+
+
+/**
+ * Loads the page immediately
+ */
+$(function() {
+  /**onload,hide the input info div as this should only be available to user once they have logged in
+  show the pre login message asking user to sign in
+*/
+  $('#input_info').hide();
+  $('#preloginMessage').show();
+  $('#linechart').hide();
+  $('#weather_API').hide();
+  sortNews("Home");
+  //Home page shows all posts
+  refreshList(subPage);
+  //adds a post once the cubmit button is clicked
+  $('#submit_forum_message').click(addPost);
+});
+
+
+/**
+ * This code was inspired by the W07 complete app example provided by Kasim Terzic
+ *
+ * @function refreshList - Updates the forum. Makes a request to the server to get the latest posts
+ * @param {string} place - user's choice of location (subpage)
+ */
+function refreshList(place) {
+  subPage = place;
+  if (subPage == "Saint Andrews") {
+    //Views can't contain spaces
+    subPage = "StAndrews"
+  }
+  fetch('/getPosts/' + subPage, {
+      method: 'GET',
+      headers: new Headers()
+    })
+    .then(response => response.json())
+    .then(dat => showPosts(dat))
+    .catch(err => console.log(err));
+  $('#upfile').val('');
+}
+
+
+/**
+ *
+ * @function changeDIV - If user wants to go from login page to sign up page
+ */
+function changeDIV() {
+  $(".box_login").hide(1000);
+  $(".box_register").show(1000);
+}
+
+
+/**
+ *
+ * @function changeDivToLogin - If user wants to go from signup page to login page
+ */
+function changeDivToLogin() {
+  $(".box_register").hide(1000);
+  $(".box_login").show(1000);
+
+}
+
+
+/**
+ *
+ * @function showPosts - Updates the forum. Makes a request to the server to get the latest posts
+ * @param {object} json - obejct with all the posts
+ */
+function showPosts(json) {
+
+  $('#box').html(""); //clear all existing tiles in the box div
+  for (jsonpost of json.allposts) {
+
+    // Convert the JSON object to an instance of class ForumPost
+    let post = new window.exports.ForumPost();
+    post.fromJSON(jsonpost);
+
+    //create a div which post elemenst will be displayed
+    var tile = document.createElement('div');
+    tile.id = 'tile';
+    tile.className = 'tiles';
+
+    /**For each of the following elements(screenName,message,place,postedAt),
+    create a paragraph element,give them an ID and display them in the DOM
+    */
+    var screenName = document.createElement('p');
+    screenName.innerHTML = post._screenName + " says...";
+    screenName.id = 'screenName2';
+    var id = document.createElement('p');
+    id.innerHTML = "Message ID: " + post._id;
+    id.id = 'id2';
+
+    var message = document.createElement('p');
+    message.innerHTML = post._message;
+    message.id = 'message2';
+    var place = document.createElement('p');
+    place.innerHTML = "Town: " + post._place;
+    place.id = 'place2';
+    var postedAt = document.createElement('p');
+    postedAt.innerHTML = "Posted on " + post._postedAt;
+    postedAt.id = 'postedAt2';
+
+
+    /**if a post has an attachment(image),then create an image element and
+    encode the attachment data using a base64 decoder.Note that although a jpeg decoder is used here,
+    the attachement data was decoded such that any type of image can be decoded.As s result,the jpeg decoder can decode any type of image
+    */
+    if (post._imageAttachment.data) {
+      var image = document.createElement('img');
+      image.className = 'images';
+      image.setAttribute("src", "data:image/jpeg;base64," + post._imageAttachment.data);
+      //add the image to the tile
+      tile.appendChild(image);
+    }
+    tile.appendChild(screenName);
+    tile.appendChild(message);
+    tile.appendChild(place);
+    tile.appendChild(postedAt);
+    tile.appendChild(id);
+
+    //add the tile to the box container
+    $('#box').append(tile);
+
+  }
+}
+
+
+/**
+ *
+ * @function addPost - Updates the forum. Makes a request to the server to get the latest posts
+ */
+function addPost() {
+  let userName = $.trim($('#username_input').html());
+  if (userName != "Please sign in to enter a name and post a message") {
+    let selectedPlace = $('#select_place').val();
+    let usersMessage = $.trim($('#message_input').val());
+    let dt = new Date();
+    let date = dt.toUTCString();
+
+    if (userName.length > 0 && usersMessage.length > 0) {
+      //add a new post with defined variables from class ForumPost
+      let post = new window.exports.ForumPost(-1, userName, selectedPlace, usersMessage, date);
+      //querySelector grabs the file from the uploader
+      file = document.querySelector('input[type=file]').files[0];
+
+      //if file is selected,then add attachement data to the post
+      if (file) {
+        if (file.type == "image/gif" || file.type == "image/png" || file.type == "image/bmp" ||
+          file.type == "image/jpeg" || file.type == "image/pg") {
+
+          /**
+          @function FileReader -reads the contents of a Blob or File.
+           @param {object}
+           */
+          //the file reader object reads and specifies the image file
+          var reader = new FileReader();
+
+          //reads the data as URL
+          reader.readAsDataURL(file);
+          //reader.onloadend grabs the image data required for posting
+          reader.onloadend = function() {
+
+            /**In order to enable the upload to accept multiple image type,
+            snip off the preface string 'data:image/jpeg;base64,'which specified image type such
+            only the encodable string is left.
+            */
+            var data = reader.result.replace(/^data:image\/[a-z]+;base64,/, "");
+            let attachmentData = {
+              name: file.name,
+              'Content-Type': 'image/jpg',
+              data: data
+            }
+            post._imageAttachment = attachmentData;
+
+            // parse the data once attachment data has been added to the post
+            let json = JSON.parse(post.toJSON());
+            /* This is a post request using the fetch API
+             */
+            fetch('/addPost', {
+                method: 'POST',
+                headers: new Headers({
+                  'Content-Type': 'application/json'
+                }),
+                body: JSON.stringify(json)
+              }).then(data => refreshList(subPage))
+              .catch(err => console.log("Error: " + err));
+          }
+
+          //if file is not selected,the post without attachment data
+        }
+      } else {
+
+        let json = JSON.parse(post.toJSON());
+        fetch('/addPost', {
+            method: 'POST',
+            headers: new Headers({
+              'Content-Type': 'application/json'
+            }),
+            body: JSON.stringify(json)
+          }).then(data => refreshList(subPage))
+          .catch(err => console.log("Error: " + err));
+      }
+    }
+  }
+
+}
+
+/**
+ *
+ * @function showRegister - After signup button has been clicked this displays the sign up div
+ */
+function showRegister() {
+  $(".box_register").css("display", "block");
+}
+
+/**
+ *
+ * @function showLogin - After login button has been clicked this displays the login div
+ */
+function showLogin() {
+  $(".box_login").css("display", "inline");
+  $('#input_info').show();
+  $('#preloginMessage').hide();
+}
+
+
+/**
+ *
+ * @function fnRegister - After user has inputted their details, the user is registered
+ */
+function fnRegister() {
+  // add some function here to put the name and password to database
+  let username = $.trim($("#registerName ").val());
+  let userPassword = $.trim($("#registerPassword").val());
+  let isError = true;
+
+  // Validate username and password- has someone else used that user name before and username and password requirements
+  let checkUserName = (function() {
+    getUserList(username, userPassword, function(statusOnNameAvailability) {
+      if (statusOnNameAvailability.includes("taken")) {
+        $("#errorRegister").off().html("Username is already taken. Please choose another");
+        isError = false;
+        return;
+      } else if (username.length > 20 || username.length < 6) {
+        $("#errorRegister").off().html("username should be longer than 6 and less than 20");
+        isError = false;
+        return;
+      } else if ((username.charCodeAt(0) >= 48) && (username.charCodeAt(0) <= 57)) {
+        $("#errorRegister").off().html("the first letter should be capital");
+        return;
+      } else if (userPassword.length > 20 || userPassword.length < 6) {
+        $("#errorRegister").off().html("password should be longer than 6 and less than 20");
+        isError = false;
+        return;
+      } else {
+        $("#errorRegister").off().html("Success. You have signed up. Now Please Login with your new details");
+        $(".box_register").delay(1000).fadeOut(400);
+        let user = new window.exports.UserInfo(-1, username, userPassword);
+        let json = JSON.parse(user.toJSON());
+
+        fetch('/addUser', {
+            method: 'POST',
+            headers: new Headers({
+              'Content-Type': 'application/json'
+            }),
+            body: JSON.stringify(json)
+          })
+          .then(res => {
+            return res.json()
+          })
+          .catch(err => console.log("Error: " + err));
+      };
+    });
+  })();
+};
+
+/**
+ *
+ * @function getUserList - After login button has been clicked this displays the login div
+ * @param {string} userName - username inputted by user
+ * @param {string} password - password inputted by user
+ * @param {string} cb - callback for statusOnNameAvailability
+ */
+function getUserList(userName, password, cb) {
+  var userNameValidationCheck;
+  var passwordValidationCheck;
+  fetch('/getUsers', {
+      method: 'GET',
+      headers: new Headers()
+    })
+    .then(response => response.json())
+    .then(dat => {
+      console.log(dat);
+      userNameValidationCheck = checkUserList(userName, dat)
+      passwordValidationCheck = checkPasswordList(userName, password, dat)
+      var namePassowrdCheck = [];
+      namePassowrdCheck.push(userNameValidationCheck)
+      namePassowrdCheck.push(passwordValidationCheck)
+      cb(namePassowrdCheck);
+    })
+    .catch(err => console.log(err));
+}
+
+/**
+ *
+ * @function checkUserList - After login button has been clicked this displays the login div
+ * @param {string} userNameInput - username inputted by user
+ * @param {object} json - returned object from the server detailing all usernames with their respective passwords
+ */
+
+function checkUserList(userNameInput, json) {
+  for (jsonusers of json.allusers) {
+    let user = new window.exports.UserInfo();
+    user.fromJSON(jsonusers);
+    if (userNameInput == user._userName) {
+      return "taken"
+    }
+  }
+}
+
+/**
+ *
+ * @function checkPasswordList - After login button has been clicked this displays the login div
+ * @param {string} userNameInput - username inputted by user
+ * @param {string} passwordInput - password inputted by user
+ * @param {object} json - returned object from the server detailing all usernames with their respective passwords
+ */
+
+function checkPasswordList(userNameInput, passwordInput, json) {
+  for (jsonusers of json.allusers) {
+    let user = new window.exports.UserInfo();
+    user.fromJSON(jsonusers);
+    if (userNameInput == user._userName && passwordInput == user._password) {
+      return "match"
+    }
+  }
+}
+
+/**
+ *
+ * @function fnLogin - Takes user's inputted details and checks the databse to see if this user
+ * has an account and if the password matches the one stored.
+ */
+function fnLogin() {
+  // add some function here to check the name and password
+  let username = $.trim($("#loginName ").val());
+  let userPassword = $.trim($("#loginPassword").val());
+  let isError = true;
+
+  let checkLogin = (function() {
+    getUserList(username, userPassword, function(statusOnNameAvailability) {
+      //If name is right but wrong passowrd
+      if (statusOnNameAvailability.includes("taken") && statusOnNameAvailability.includes("match")) {
+        $("#errorLogin").off().html("You are now logged in!");
+        $('#username_input').off().html(username);
+        $('#message_input').prop(`disabled`, false)
+        $(".box_login").delay(1000).fadeOut(400);
+      } else if (statusOnNameAvailability.includes("taken")) {
+        $("#errorLogin").off().html("Password is wrong");
+        let isError = false;
+        return;
+      } else if (true) {
+        $("#errorLogin").off().html("No user matches these details. Please try again or sign up");
+        let isError = false;
+        return;
+      }
+    });
+  })();
+};

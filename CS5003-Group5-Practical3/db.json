@@ -1,0 +1,9 @@
+{
+  "url": "http://palain.cs.st-andrews.ac.uk:21205",
+  "dbname": "forum-posts-storage",
+  "dbname2": "users-final-storage",
+  "auth": {
+    "username": "tmep",
+    "password": "4PkwHPHf"
+  }
+}

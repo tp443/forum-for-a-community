@@ -1,0 +1,28 @@
+{
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/npm/npm.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/npm/npm/issues"
+    },
+    "name": "CS5003-P3",
+    "version": "1.0.0",
+    "dependencies": {
+        "add-cors-to-couchdb": "0.0.6",
+        "body-parser": "1.18",
+        "chai": "^4.1.2",
+        "chai-http": "^4.0.0",
+        "cors": "^2.8.4",
+        "cradle": "^0.7.1",
+        "express": "4.16",
+        "fs": "0.0.1-security",
+        "geolocation": "^0.2.0",
+        "jsdoc": "^3.5.5",
+        "mocha": "^5.0.5",
+        "nodemon": "^1.17.3",
+        "pouchdb": "^6.4.3"
+    }
+}

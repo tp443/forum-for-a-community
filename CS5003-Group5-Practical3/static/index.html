@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web</title>
+  <link href="c3.css" rel="stylesheet">
+  <script type="text/javascript" src="d3.min.js"></script>
+  <script type="text/javascript" src="c3.min.js"></script>
+  <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+  <script src="model.js"></script>
+  <link href="main.css" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Anton" rel="stylesheet">
+
+</head>
+
+<body>
+  <div class="container">
+    <!-- login page -->
+    <!-- show only when log in button is clicked -->
+    <div class="box_login">
+      <div class="box">
+        <h2>Login</h2>
+        <div class="input_box">
+          <input id="loginName" type="text" name="user" placeholder="name">
+        </div>
+        <div class="input_box">
+          <input id="loginPassword" type="password" name="psw" placeholder="password">
+        </div>
+        <!-- for showing error information -->
+        <div id="errorLogin"><br></div>
+        <div class="input_box">
+          <button type="button" class="btn btn-primary" onclick="fnLogin()">Login</button>
+          <button type="button" class="btn btn-primary" onclick="changeDIV()">Sign Up</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- sign up page -->
+    <!-- show only when sign up button is clicked -->
+    <div class="box_register">
+      <div class="box">
+        <h2>Sign Up</h2>
+        <div class="input_box">
+          <input id="registerName" type="text" name="user" placeholder="name">
+        </div>
+        <div class="input_box">
+          <input id="registerPassword" type="password" name="psw" placeholder="password">
+        </div>
+        <!-- for showing error information -->
+        <div id="errorRegister"><br></div>
+        <div class="input_box">
+          <button type="button" class="btn btn-primary" onclick="fnRegister()">Sign Up</button>
+          <button type="button" class="btn btn-primary" onclick="changeDivToLogin()">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- show title and can select cities -->
+    <header>
+      <div class="primary_header">
+        <button id="signUp" onclick="showRegister()">SIGN UP</button>
+        <button id="login" onclick="showLogin()">LOG IN</button>
+        <h1 class="title">FifeAlert</h1>
+      </div>
+      <nav class="secondary_header">
+        <ul>
+          <li><button id="home" onclick="locate(this.innerHTML)" class="place" value="Home">Home</li>
+            <li> <button id="standrews" onclick="locate(this.innerHTML)" class="place" value="St. Andrews">Saint Andrews</li>
+           <li><button id="Cupar" onclick="locate(this.innerHTML)" class="place" value="Cupar">Cupar</li>
+           <li><button id="Dundee" onclick="locate(this.innerHTML)" class="place" value="Dundee">Dundee</li>
+           <li><button id="Newport" onclick="locate(this.innerHTML)" class="place" value="Newport">Newport</li>
+           <li><button id="Glenrothes" onclick="locate(this.innerHTML)" class="place" value="Glenrothes">Glenrothes</li>
+      </ul>
+    </nav>
+  </header>
+
+
+    <!-- show information get from other APIs -->
+    <div class="API_container">
+      <div class="API" id="map_API">
+        <div id="googleMap"></div>
+      </div>
+      <div class="API" id="linechart">
+        <h3>Five-day temperature forecast</h3>
+        <div id="chart"></div>
+      </div>
+
+      <div class="API" id="weather_API">
+        <div id="weatherinformation">
+          <h3>Weather information</h3>
+          <div id="cityinfo"> </div>
+                <div id="mainmessage"> </div>
+                <div id="temperature"> </div>
+                <div id="wind"> </div>
+                <div id="descript"> </div>
+                <div id="tempmin"> </div>
+                <div id="tempmax"> </div>
+                <div id="humidity"> </div>
+          </div>
+      </div>
+    </div>
+
+    <!-- for user to input information and show information-->
+    <div class="info_container">
+      <div id="input_info">
+        <h3 class="post_info"></h3><div id="username_input"></div>
+        <p>
+          Which forum do you want to post to?
+          <select id="select_place">
+            <option value ="St-Andrews">St-Andrews</option>
+            <option value ="Cupar">Cupar</option>
+            <option value ="Dundee">Dundee</option>
+            <option value ="Newport">Newport</option>
+            <option value ="Glenrothes">Glenrothes</option>
+        </select>
+          <p>
+            Your message: <input class="post_info" type="text" id="message_input" disabled></input>
+            <a href="javascript:void(0);" id="getFile">
+          <input type="file" class="post_info" id="upfile"><span>upload picture</span><br>
+        </a>
+        <button type="submit" class="post_info" id="submit_forum_message">Submit</button>
+  </div>
+
+  <p id='preloginMessage'>Please Login to Post Your Messages!</p>
+
+  <div id="show_info">
+    <h3>Forum Messages</h3>
+    <div id='box'>
+    </div>
+  </div>
+  </div>
+
+  <!-- show news -->
+  <div class="news_container">
+    <h4 id='newsCorner'>NEWS CORNER!</h4>
+    <div id="sortChoice">
+      <h3 class="post_info">Select Your News Source</h3>
+      <select id="source" onload="sortNews()" onchange="sortNews()">
+    </select><br><br>
+      <h3 class="post_info">What do you want to know,search Here!</h3>
+      <input type="text" id="keyword" />
+      <input type="button" id="keywordBtn" value="confirm" onclick="sortNews()" />
+    </div>
+    <div id="showNews">LOOK FOR SOMETHING INTERESTING!
+    </div>
+  </div>
+  <footer class="secondary_header footer">
+    <div class="copyright">&copy;2018 - <strong>Group 5</strong></div>
+  </footer>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCR_i8VzXdxosl2rTCz8S2gfuXxK7lcn00&callback=initMap"></script>
+  <script src="weather.js"></script>
+  <script src="client.js"></script>
+  <script src="news.js"></script>
+
+
+</body>
+
+</html>
